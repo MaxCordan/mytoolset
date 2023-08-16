@@ -119,27 +119,28 @@ alias ll='ls -lah'
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+export AWS_PAGER=""
 function eks-login() {
+  aws_region=${2:-"us-east-1"}
   eks_clusters=$(aws eks list-clusters --output text --query 'clusters[]')
   for cluster in ${(z)eks_clusters[@]}; do
-    aws eks --region us-east-1 update-kubeconfig --name ${cluster};
-  done
-}
-function eks-login-eu() {
-  eks_clusters=$(aws eks list-clusters --output text --query 'clusters[]')
-  for cluster in ${(z)eks_clusters[@]}; do
-    aws eks --region eu-west-1 update-kubeconfig --name ${cluster};
+    aws eks --region $aws_region update-kubeconfig --name ${cluster};
   done
 }
 function eks-use() {
-  kubectl config use-context arn:aws:eks:us-east-1:567173376971:cluster/${1}-cluster
+  cluster_name=${1}
+  aws_region=${2:-"us-east-1"}
+  account_id=$(aws sts get-caller-identity --query "Account" --output text)
+  kubectl config use-context arn:aws:eks:${aws_region}:${account_id}:cluster/${cluster_name}-cluster
 }
 function aws-use() {
   rm -f ~/.aws
   ln -s ~/.aws_${1} ~/.aws
 }
 function aws-mfa() {
-  output=$(aws sts get-session-token --serial-number arn:aws:iam::567173376971:mfa/iphone --token-code ${1})
+  token=${1}
+  account_id=$(aws sts get-caller-identity --query "Account" --output text)
+  output=$(aws sts get-session-token --serial-number arn:aws:iam::${account_id}:mfa/iphone --token-code ${token})
   export AWS_ACCESS_KEY_ID=$(echo $output | jq -r ."Credentials.AccessKeyId")
   export AWS_SECRET_ACCESS_KEY=$(echo $output | jq -r ."Credentials.SecretAccessKey")
   export AWS_SESSION_TOKEN=$(echo $output | jq -r ."Credentials.SessionToken")
@@ -155,7 +156,9 @@ function aws-mfa-reset() {
   unset AWS_SECRET_ACCESS_KEY
   unset AWS_SESSION_TOKEN
 }
-
 function ssh-aws() {
   aws ssm start-session --target $1 --document-name AWS-StartInteractiveCommand --parameters command="cd ~ && bash -l"
+}
+function ec2-list-instances() {
+  aws ec2 describe-instances --query "Reservations[*].Instances[*].{a_Name:Tags[?Key=='Name']|[0].Value,c_IP:PrivateIpAddress,b_Instance:InstanceId}" --output=table
 }
