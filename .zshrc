@@ -9,7 +9,7 @@ fi
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
-export ZSH="/home/mpuzik/.oh-my-zsh"
+export ZSH="$HOME/.oh-my-zsh"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
@@ -139,8 +139,9 @@ function aws-use() {
 }
 function aws-mfa() {
   token=${1}
+  mfa_device=${2:-"iphone"}
   account_id=$(aws sts get-caller-identity --query "Account" --output text)
-  output=$(aws sts get-session-token --serial-number arn:aws:iam::${account_id}:mfa/iphone --token-code ${token})
+  output=$(aws sts get-session-token --serial-number arn:aws:iam::${account_id}:mfa/${mfa_device} --token-code ${token})
   export AWS_ACCESS_KEY_ID=$(echo $output | jq -r ."Credentials.AccessKeyId")
   export AWS_SECRET_ACCESS_KEY=$(echo $output | jq -r ."Credentials.SecretAccessKey")
   export AWS_SESSION_TOKEN=$(echo $output | jq -r ."Credentials.SessionToken")
@@ -160,5 +161,24 @@ function ssh-aws() {
   aws ssm start-session --target $1 --document-name AWS-StartInteractiveCommand --parameters command="cd ~ && bash -l"
 }
 function ec2-list-instances() {
-  aws ec2 describe-instances --query "Reservations[*].Instances[*].{a_Name:Tags[?Key=='Name']|[0].Value,c_IP:PrivateIpAddress,b_Instance:InstanceId}" --output=table
+  aws_region="us-east-1"
+  FILTERS=()
+  while [ -n "$1" ]; do
+    case "$1" in
+      -r) aws_region=${2}
+      shift ;;
+      -ip) FILTERS+=("Name=network-interface.addresses.private-ip-address,Values=$2")
+      shift ;;
+      -p) FILTERS+=("Name=tag:Project,Values=$2")
+      shift ;;
+      -e) FILTERS+=("Name=tag:Environment,Values=$2")
+      shift ;;
+      -t) FILTERS+=("Name=tag:Type,Values=$2")
+      shift ;;
+      -n) FILTERS+=("Name=tag:Name,Values=$2")
+      shift ;;
+    esac
+    shift
+  done
+  aws ec2 --region $aws_region describe-instances --query "Reservations[*].Instances[*].{a_Name:Tags[?Key=='Name']|[0].Value,c_IP:PrivateIpAddress,b_Instance:InstanceId}" --filters $FILTERS --output=table
 }
