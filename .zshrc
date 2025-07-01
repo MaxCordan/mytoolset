@@ -139,9 +139,9 @@ function aws-use() {
 }
 function aws-mfa() {
   token=${1}
-  mfa_device=${2:-"iphone"}
-  account_id=$(aws sts get-caller-identity --query "Account" --output text)
-  output=$(aws sts get-session-token --serial-number arn:aws:iam::${account_id}:mfa/${mfa_device} --token-code ${token})
+  user_id=$(aws sts get-caller-identity --query UserId --output text)
+  mfa_device=$(aws iam list-virtual-mfa-devices --query "VirtualMFADevices[?User.UserId=='${user_id}')'].SerialNumber" --output text)
+  output=$(aws sts get-session-token --serial-number ${mfa_device} --token-code ${token})
   export AWS_ACCESS_KEY_ID=$(echo $output | jq -r ."Credentials.AccessKeyId")
   export AWS_SECRET_ACCESS_KEY=$(echo $output | jq -r ."Credentials.SecretAccessKey")
   export AWS_SESSION_TOKEN=$(echo $output | jq -r ."Credentials.SessionToken")
