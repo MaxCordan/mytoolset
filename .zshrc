@@ -140,7 +140,7 @@ function aws-use() {
 function aws-mfa() {
   token=${1}
   user_id=$(aws sts get-caller-identity --query UserId --output text)
-  mfa_device=$(aws iam list-virtual-mfa-devices --query "VirtualMFADevices[?User.UserId=='${user_id}')'].SerialNumber" --output text)
+  mfa_device=$(aws iam list-virtual-mfa-devices --query "VirtualMFADevices[?User.UserId=='${user_id}'].SerialNumber" --output text)
   output=$(aws sts get-session-token --serial-number ${mfa_device} --token-code ${token})
   export AWS_ACCESS_KEY_ID=$(echo $output | jq -r ."Credentials.AccessKeyId")
   export AWS_SECRET_ACCESS_KEY=$(echo $output | jq -r ."Credentials.SecretAccessKey")
